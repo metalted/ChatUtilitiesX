@@ -2,15 +2,19 @@ using BepInEx;
 using BepInEx.Configuration;
 using ChatUtilities.Data;
 using ChatUtilities.Suggestions;
+using ChatUtilities.UI;
 using HarmonyLib;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using ZeepSDK.Settings;
+using ZeepSDK.Settings.Drawers;
 
 namespace ChatUtilities
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+    [BepInDependency("ZeepSDK", BepInDependency.DependencyFlags.HardDependency)]
     public class Plugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
@@ -40,12 +44,15 @@ namespace ChatUtilities
         {
             Instance = this;
 
-            commands = DefaultChatData.CreateCommands();
+            commands = new List<ChatCommandDefinition>();
+
             emotes = DefaultChatData.CreateEmotes();
             userContent = new List<UserContentDefinition>();
             history = new ChatHistoryController();
 
             BindConfig();
+            SettingsApi.RegisterModSettingsDrawers(this, BuildSettingsDrawers);
+
             RebuildUserContent();
 
             Config.SettingChanged += OnConfigSettingChanged;
@@ -54,6 +61,65 @@ namespace ChatUtilities
             harmony.PatchAll();
 
             Logger.LogInfo("Chat Utilities loaded.");
+        }
+
+        public void RefreshRegisteredCommands()
+        {
+            commands = CreateCombinedCommandList();
+
+            RebuildShortcodeExpander();
+
+            if (suggestions != null)
+            {
+                suggestions.SetProviders(CreateSuggestionProviders());
+            }
+
+            Logger.LogInfo("Chat Utilities loaded chat commands. Count: " + commands.Count);
+        }
+
+        private List<ChatCommandDefinition> CreateCombinedCommandList()
+        {
+            List<ChatCommandDefinition> result = new List<ChatCommandDefinition>();
+            HashSet<string> usedCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            AddCommands(result, usedCommands, DefaultChatData.CreateCommands());
+            AddCommands(result, usedCommands, ZeepSdkChatCommandReader.CreateCommandsFromZeepSdk());
+
+            return result;
+        }
+
+        private void AddCommands(
+            List<ChatCommandDefinition> result,
+            HashSet<string> usedCommands,
+            List<ChatCommandDefinition> commandsToAdd)
+        {
+            if (commandsToAdd == null)
+            {
+                return;
+            }
+
+            foreach (ChatCommandDefinition command in commandsToAdd)
+            {
+                if (command == null)
+                {
+                    continue;
+                }
+
+                string commandText = command.Command ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(commandText))
+                {
+                    continue;
+                }
+
+                if (usedCommands.Contains(commandText))
+                {
+                    continue;
+                }
+
+                usedCommands.Add(commandText);
+                result.Add(command);
+            }
         }
 
         private void OnDestroy()
@@ -174,47 +240,57 @@ namespace ChatUtilities
         {
             UserContentJson = Config.Bind(
                 "Settings",
-                "01. User Content",
+                "User Content",
                 "{}",
-                "JSON key-value pairs. The key is the searchable title/description. The value is the text inserted into chat. Trigger with *. Shortcode example: *3.");
+                "[hide] JSON storage for custom user content entries.");
 
             ApplySelectionKey = Config.Bind(
-                "Settings",
-                "02. Apply Selection",
+                "1. Controls",
+                "01. Apply Selection",
                 KeyCode.RightArrow,
                 "Accept the selected chat suggestion.");
 
             ClearChatFieldKey = Config.Bind(
-                "Settings",
-                "03. Clear Chat Field",
+                "1. Controls",
+                "02. Clear Chat Field",
                 KeyCode.None,
                 "Remove all text from the chat field.");
 
             PasteClipboardKey = Config.Bind(
-                "Settings",
-                "04. Paste Clipboard",
+                "1. Controls",
+                "03. Paste Clipboard",
                 KeyCode.None,
                 "Paste the clipboard contents into the chat field.");
 
             MaxSuggestions = Config.Bind(
-                "Settings",
-                "05. Max Suggestions",
+                "2. User Interface",
+                "01. Max Suggestions",
                 40,
                 "Maximum number of suggestions shown in the picker.");
 
             RowTextScale = Config.Bind(
-                "Settings",
-                "Row Text Scale",
+                "2. User Interface",
+                "02. Row Text Scale",
                 18f,
                 "Text scale inside the row.");
 
             SuggestionScrollRowsPerWheel = Config.Bind(
-                "Settings",
-                "06. Scroll Rows Per Wheel Step",
+                "2. User Interface",
+                "03. Scroll Rows Per Wheel Step",
                 1f,
                 "How many suggestion rows the mouse wheel should scroll per wheel step."
             );
+        }
 
+        private IEnumerable<IZeepSettingsDrawer> BuildSettingsDrawers(ModSettingsDrawerBuildContext context)
+        {
+            foreach(IZeepSettingsDrawer drawer in context.CreateDefaultDrawers())
+            {
+                yield return drawer;
+            }
+
+            yield return new ZeepSettingsHeaderDrawer("3. User Content");
+            yield return new UserContentSettingsDrawer(UserContentJson);
         }
 
         private void HandleGlobalInputShortcuts()
