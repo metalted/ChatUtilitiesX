@@ -125,8 +125,15 @@ namespace ChatUtilities.Suggestions
         private ChatSuggestionEntry CreateEntry(int index, UserContentDefinition item)
         {
             int number = index + 1;
-            string displayText = "<color=#fc5d5d>" + number + ". " + item.Title + "</color>\n" + item.Content;
-            return new ChatSuggestionEntry(number, item.Title, item.Content, displayText);
+            string primaryText = "<color=#fc5d5d>" + number + ". " + item.Title + "</color>";
+            string secondaryText = item.Content;
+
+            return new ChatSuggestionEntry(
+                number,
+                item.Content,
+                item.Title,
+                primaryText,
+                secondaryText);
         }
     }
 }

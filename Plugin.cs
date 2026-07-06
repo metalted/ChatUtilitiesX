@@ -19,7 +19,7 @@ namespace ChatUtilities
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
         public const string PluginName = "Chat Utilities";
-        public const string PluginVersion = "2.0";
+        public const string PluginVersion = "2.1";
 
         public static Plugin Instance;
 

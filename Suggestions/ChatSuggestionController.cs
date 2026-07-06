@@ -16,6 +16,11 @@ namespace ChatUtilities.Suggestions
         private string previousInput = string.Empty;
         private int selectedIndex;
 
+        private KeyCode heldSelectionKey = KeyCode.None;
+        private float nextSelectionRepeatTime;
+        private float selectionRepeatDelay = 0.35f;
+        private float selectionRepeatInterval = 0.08f;
+
         public bool IsOpen
         {
             get
@@ -52,6 +57,8 @@ namespace ChatUtilities.Suggestions
             activeProvider = null;
             previousInput = string.Empty;
             selectedIndex = 0;
+            heldSelectionKey = KeyCode.None;
+            nextSelectionRepeatTime = 0f;
             chatInput = null;
         }
 
@@ -110,6 +117,7 @@ namespace ChatUtilities.Suggestions
             activeProvider = null;
             matches.Clear();
             selectedIndex = 0;
+            ClearSelectionRepeat();
 
             if (view != null)
             {
@@ -194,15 +202,8 @@ namespace ChatUtilities.Suggestions
                 return false;
             }
 
-            if (Input.GetKeyDown(KeyCode.DownArrow))
+            if (HandleSelectionNavigation())
             {
-                MoveSelection(1);
-                return true;
-            }
-
-            if (Input.GetKeyDown(KeyCode.UpArrow))
-            {
-                MoveSelection(-1);
                 return true;
             }
 
@@ -213,6 +214,69 @@ namespace ChatUtilities.Suggestions
             }
 
             return false;
+        }
+
+        private bool HandleSelectionNavigation()
+        {
+            if (Input.GetKeyDown(KeyCode.DownArrow))
+            {
+                StartSelectionRepeat(KeyCode.DownArrow);
+                MoveSelection(1);
+                return true;
+            }
+
+            if (Input.GetKeyDown(KeyCode.UpArrow))
+            {
+                StartSelectionRepeat(KeyCode.UpArrow);
+                MoveSelection(-1);
+                return true;
+            }
+
+            if (heldSelectionKey == KeyCode.DownArrow)
+            {
+                if (!Input.GetKey(KeyCode.DownArrow))
+                {
+                    ClearSelectionRepeat();
+                    return false;
+                }
+
+                if (Time.unscaledTime >= nextSelectionRepeatTime)
+                {
+                    nextSelectionRepeatTime = Time.unscaledTime + selectionRepeatInterval;
+                    MoveSelection(1);
+                    return true;
+                }
+            }
+
+            if (heldSelectionKey == KeyCode.UpArrow)
+            {
+                if (!Input.GetKey(KeyCode.UpArrow))
+                {
+                    ClearSelectionRepeat();
+                    return false;
+                }
+
+                if (Time.unscaledTime >= nextSelectionRepeatTime)
+                {
+                    nextSelectionRepeatTime = Time.unscaledTime + selectionRepeatInterval;
+                    MoveSelection(-1);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void StartSelectionRepeat(KeyCode key)
+        {
+            heldSelectionKey = key;
+            nextSelectionRepeatTime = Time.unscaledTime + selectionRepeatDelay;
+        }
+
+        private void ClearSelectionRepeat()
+        {
+            heldSelectionKey = KeyCode.None;
+            nextSelectionRepeatTime = 0f;
         }
 
         private bool IsApplySelectionPressed()

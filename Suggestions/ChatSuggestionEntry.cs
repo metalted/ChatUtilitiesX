@@ -3,16 +3,23 @@ namespace ChatUtilities.Suggestions
     public class ChatSuggestionEntry
     {
         public int Number { get; private set; }
-        public string MatchText { get; private set; }
         public string InsertText { get; private set; }
-        public string DisplayText { get; private set; }
+        public string MatchText { get; private set; }
+        public string PrimaryText { get; private set; }
+        public string SecondaryText { get; private set; }
 
-        public ChatSuggestionEntry(int number, string matchText, string insertText, string displayText)
+        public ChatSuggestionEntry(
+            int number,
+            string insertText,
+            string matchText,
+            string primaryText,
+            string secondaryText)
         {
             Number = number;
-            MatchText = matchText ?? string.Empty;
             InsertText = insertText ?? string.Empty;
-            DisplayText = displayText ?? string.Empty;
+            MatchText = matchText ?? string.Empty;
+            PrimaryText = primaryText ?? string.Empty;
+            SecondaryText = secondaryText ?? string.Empty;
         }
     }
 }

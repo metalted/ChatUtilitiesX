@@ -126,18 +126,12 @@ namespace ChatUtilities.Suggestions
                 row.Index = i;
                 row.Root.SetActive(true);
 
-                /*if ((UnityEngine.Object)row.Text != null)
-                {
-                    ApplyTextTemplateSettings(row.Text);
-                    row.Text.text = entries[i].DisplayText;
-                }*/
-
-                string primaryText;
-                string secondaryText;
-                SplitDisplayText(entries[i].DisplayText, out primaryText, out secondaryText);
+                string primaryText = entries[i].PrimaryText;
+                string secondaryText = entries[i].SecondaryText;
 
                 bool hasSecondaryText = !string.IsNullOrEmpty(secondaryText);
                 ConfigureRowTextLayout(row, hasSecondaryText);
+                ApplyRowHeight(row, hasSecondaryText);
 
                 if ((UnityEngine.Object)row.PrimaryText != null)
                 {
@@ -198,35 +192,6 @@ namespace ChatUtilities.Suggestions
                 ScrollToRow(selectedTransform);
             }
         }
-
-        /*private void CaptureTemplateSizing()
-        {
-            RectTransform templateTransform = null;
-
-            if ((UnityEngine.Object)chatTextTemplate != null)
-            {
-                templateTransform = chatTextTemplate.GetComponent<RectTransform>();
-            }
-
-            if ((UnityEngine.Object)chatTextTemplateText != null)
-            {
-                baseFontSize = Mathf.Max(1f, chatTextTemplateText.fontSize);
-            }
-            else
-            {
-                baseFontSize = 18f;
-            }
-
-            if ((UnityEngine.Object)templateTransform != null && templateTransform.rect.height > 4f)
-            {
-                baseRowHeight = templateTransform.rect.height;
-            }
-            else
-            {
-                baseRowHeight = Mathf.Max(24f, baseFontSize * 1.4f);
-            }
-        }*/
-
         private void CaptureTemplateSizing()
         {
             RectTransform templateTransform = null;
@@ -368,60 +333,7 @@ namespace ChatUtilities.Suggestions
             {
                 rows.Add(CreateRow(rows.Count));
             }
-        }
-
-        /*private ChatSuggestionRow CreateRow(int index)
-        {
-            GameObject rowObject = new GameObject(
-                "ChatSuggestionRow",
-                new Type[] { typeof(RectTransform), typeof(Button), typeof(Image), typeof(LayoutElement) });
-            rowObject.transform.SetParent(contentRoot, false);
-
-            RectTransform rowTransform = rowObject.GetComponent<RectTransform>();
-            LayoutElement layoutElement = rowObject.GetComponent<LayoutElement>();
-            Image rowImage = rowObject.GetComponent<Image>();
-            Button button = rowObject.GetComponent<Button>();
-            ChatSuggestionRow row = new ChatSuggestionRow(index, rowObject, rowTransform, layoutElement, rowImage, null);
-
-            GameObject textObject = UnityEngine.Object.Instantiate(chatTextTemplate, rowObject.transform);
-            textObject.name = "SuggestionText";
-            textObject.transform.localScale = Vector3.one;
-            textObject.transform.localRotation = Quaternion.identity;
-
-            RectTransform textTransform = textObject.GetComponent<RectTransform>();
-
-            if ((UnityEngine.Object)textTransform != null)
-            {
-                textTransform.anchorMin = new Vector2(0.02f, 0.02f);
-                textTransform.anchorMax = new Vector2(0.98f, 0.98f);
-                textTransform.pivot = new Vector2(0f, 0.5f);
-                textTransform.anchoredPosition = new Vector2(10f, 0f);
-                textTransform.offsetMin = new Vector2(10f, 0f);
-                textTransform.offsetMax = new Vector2(-10f, 0f);
-            }
-
-            TextMeshProUGUI text = textObject.GetComponent<TextMeshProUGUI>();
-
-            if ((UnityEngine.Object)text != null)
-            {
-                ApplyTextTemplateSettings(text);
-                text.text = string.Empty;
-            }
-
-            row.Text = text;
-            ApplyCurrentStyleToRow(row);
-
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener((UnityAction)delegate
-            {
-                if (RowClicked != null)
-                {
-                    RowClicked(row.Index);
-                }
-            });
-
-            return row;
-        }*/
+        }       
 
         private ChatSuggestionRow CreateRow(int index)
         {
@@ -559,26 +471,31 @@ namespace ChatUtilities.Suggestions
                 text.paragraphSpacing = chatTextTemplateText.paragraphSpacing;
             }
         }
-        private void SplitDisplayText(string displayText, out string primaryText, out string secondaryText)
+
+        private void ApplyRowHeight(ChatSuggestionRow row, bool hasSecondaryText)
         {
-            primaryText = string.Empty;
-            secondaryText = string.Empty;
-
-            if (string.IsNullOrEmpty(displayText))
+            if (row == null)
             {
                 return;
             }
 
-            int newlineIndex = displayText.IndexOf('\n');
+            ChatSuggestionStyle style = currentStyle ?? CreateFallbackStyle();
+            float multiplier = hasSecondaryText ? style.RowHeightMultiplier : 1f;
+            float rowHeight = Mathf.Max(1f, baseRowHeight * multiplier);
 
-            if (newlineIndex < 0)
+            if ((UnityEngine.Object)row.Transform != null)
             {
-                primaryText = displayText;
-                return;
+                row.Transform.sizeDelta = new Vector2(0f, rowHeight);
             }
 
-            primaryText = displayText.Substring(0, newlineIndex);
-            secondaryText = displayText.Substring(newlineIndex + 1);
+            if (row.LayoutElement != null)
+            {
+                row.LayoutElement.minHeight = rowHeight;
+                row.LayoutElement.preferredHeight = rowHeight;
+                row.LayoutElement.flexibleHeight = 0f;
+            }
+
+            ApplyScrollSensitivity();
         }
 
         private void ConfigureRowTextLayout(ChatSuggestionRow row, bool hasSecondaryText)
@@ -719,32 +636,6 @@ namespace ChatUtilities.Suggestions
                 PrimaryText = primaryText;
                 SecondaryText = secondaryText;
             }
-        }
-
-        /*public class ChatSuggestionRow
-        {
-            public int Index;
-            public GameObject Root;
-            public RectTransform Transform;
-            public LayoutElement LayoutElement;
-            public Image Image;
-            public TextMeshProUGUI Text;
-
-            public ChatSuggestionRow(
-                int index,
-                GameObject root,
-                RectTransform transform,
-                LayoutElement layoutElement,
-                Image image,
-                TextMeshProUGUI text)
-            {
-                Index = index;
-                Root = root;
-                Transform = transform;
-                LayoutElement = layoutElement;
-                Image = image;
-                Text = text;
-            }
-        }*/
+        }        
     }
 }

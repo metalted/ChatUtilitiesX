@@ -35,7 +35,7 @@ namespace ChatUtilities.Suggestions
                 new Color(0f, 0f, 0f, 0.25f),
                 new Vector2(0f, 0.05f),
                 new Vector2(1f, 0.4f),
-                2f);
+                1f);
         }
 
         public bool TryGetQuery(string input, out string query)
@@ -148,8 +148,15 @@ namespace ChatUtilities.Suggestions
         private ChatSuggestionEntry CreateEntry(int index, EmoteDefinition emote)
         {
             int number = index + 1;
-            string displayText = "<color=#8AB4F8>" + number + ".</color> " + emote.SpriteTag + "   " + emote.Code;
-            return new ChatSuggestionEntry(number, emote.Code, emote.Code, displayText);
+            string primaryText = "<color=#8AB4F8>" + number + ".</color> " + emote.SpriteTag + "   " + emote.Code;
+            string secondaryText = string.Empty;
+
+            return new ChatSuggestionEntry(
+                number,
+                emote.Code,
+                emote.Code,
+                primaryText,
+                secondaryText);
         }
     }
 }
