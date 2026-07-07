@@ -52,7 +52,7 @@ namespace ChatUtilities.UI
                 if (isDirty)
                 {
                     gui.AddSpacing();
-                    gui.Text("Unsaved changes.", Color.yellow);
+                    gui.Text("Unsaved changes.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(statusText))

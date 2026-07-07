@@ -19,7 +19,7 @@ namespace ChatUtilities
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
         public const string PluginName = "Chat Utilities";
-        public const string PluginVersion = "2.1";
+        public const string PluginVersion = "2.2";
 
         public static Plugin Instance;
 
@@ -284,12 +284,7 @@ namespace ChatUtilities
 
         private IEnumerable<IZeepSettingsDrawer> BuildSettingsDrawers(ModSettingsDrawerBuildContext context)
         {
-            foreach(IZeepSettingsDrawer drawer in context.CreateDefaultDrawers())
-            {
-                yield return drawer;
-            }
-
-            yield return new ZeepSettingsHeaderDrawer("3. User Content");
+            yield return new ChatUtilitiesSettingsDrawer();
             yield return new UserContentSettingsDrawer(UserContentJson);
         }
 

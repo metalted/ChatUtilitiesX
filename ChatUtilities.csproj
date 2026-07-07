@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>ChatUtilities</AssemblyName>
     <Description>ChatUtilities</Description>
-    <Version>2.1</Version>
+    <Version>2.2</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
