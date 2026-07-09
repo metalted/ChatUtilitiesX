@@ -2,6 +2,7 @@
 using Imui.Controls;
 using Imui.Core;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -33,7 +34,8 @@ namespace ChatUtilities.UI
 
             using (gui.Indent())
             {
-                gui.Text("Create custom chat suggestions here. Use * to search them in chat.");
+                gui.Text("Create custom chat suggestions here. Type * in chat to search and insert them.", wrap: true);
+                gui.Text("Hold the Quick User Content key to open this list instantly, then press 1-9 to select one of the first 9 entries. Entries with Auto enabled will be sent immediately.", wrap: true); 
                 gui.AddSpacing();
 
                 UserContentTableLayout layout = UserContentTableLayout.Create(gui);
@@ -71,6 +73,7 @@ namespace ChatUtilities.UI
 
             DrawTextCell(gui, "Title", layout.TitleWidth, layout.HeaderHeight);
             DrawTextCell(gui, "Content", layout.ContentWidth, layout.HeaderHeight);
+            DrawTextCell(gui, "Auto", layout.AutoSendButtonWidth, layout.HeaderHeight);
             DrawTextCell(gui, "", layout.UpButtonWidth, layout.HeaderHeight);
             DrawTextCell(gui, "", layout.DownButtonWidth, layout.HeaderHeight);
             DrawTextCell(gui, "", layout.DeleteButtonWidth, layout.HeaderHeight);
@@ -145,6 +148,8 @@ namespace ChatUtilities.UI
                 MarkDirty();
             }
 
+            DrawAutoSendButton(gui, entry, layout.AutoSendButtonWidth, layout.RowHeight);
+
             bool canMoveUp = index > 0;
             bool canMoveDown = index < entries.Count - 1;
 
@@ -180,13 +185,24 @@ namespace ChatUtilities.UI
             gui.EndHorizontal();
         }
 
+        private void DrawAutoSendButton(ImGui gui, EditableUserContentEntry entry, float width, float height)
+        {
+            string buttonText = entry.AutoSend ? "☑" : "☐";
+
+            if (gui.Button(buttonText, new ImSize(width, height)))
+            {
+                entry.AutoSend = !entry.AutoSend;
+                MarkDirty();
+            }
+        }
+
         private void DrawBottomButtons(ImGui gui, UserContentTableLayout layout)
         {
             gui.BeginHorizontal(layout.TotalWidth);
 
             if (gui.Button("Add New Entry", new ImSize(160f, layout.RowHeight)))
             {
-                entries.Add(new EditableUserContentEntry(string.Empty, string.Empty));
+                entries.Add(new EditableUserContentEntry(string.Empty, string.Empty, false));
                 MarkDirty();
             }
 
@@ -279,15 +295,56 @@ namespace ChatUtilities.UI
 
             try
             {
-                Dictionary<string, string> dictionary =
-                    JsonConvert.DeserializeObject<Dictionary<string, string>>(loadedJson);
+                JObject root = JObject.Parse(loadedJson);
 
-                if (dictionary != null)
+                foreach (JProperty property in root.Properties())
                 {
-                    foreach (KeyValuePair<string, string> pair in dictionary)
+                    string title = property.Name;
+                    string content = string.Empty;
+                    bool autoSend = false;
+
+                    if (property.Value.Type == JTokenType.String)
                     {
-                        entries.Add(new EditableUserContentEntry(pair.Key, pair.Value));
+                        content = property.Value.ToString();
+                        autoSend = false;
                     }
+                    else if (property.Value.Type == JTokenType.Object)
+                    {
+                        JObject entryObject = (JObject)property.Value;
+
+                        JToken contentToken;
+
+                        if (entryObject.TryGetValue("Content", StringComparison.OrdinalIgnoreCase, out contentToken))
+                        {
+                            content = contentToken.ToString();
+                        }
+
+                        JToken autoSendToken;
+
+                        if (entryObject.TryGetValue("AutoSend", StringComparison.OrdinalIgnoreCase, out autoSendToken))
+                        {
+                            if (autoSendToken.Type == JTokenType.Boolean)
+                            {
+                                autoSend = autoSendToken.Value<bool>();
+                            }
+                            else
+                            {
+                                bool.TryParse(autoSendToken.ToString(), out autoSend);
+                            }
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(title))
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(content))
+                    {
+                        continue;
+                    }
+
+                    entries.Add(new EditableUserContentEntry(title, content, autoSend));
                 }
 
                 isDirty = false;
@@ -308,7 +365,7 @@ namespace ChatUtilities.UI
                 return;
             }
 
-            Dictionary<string, string> dictionary;
+            Dictionary<string, SavedUserContentEntry> dictionary;
 
             if (!TryBuildDictionary(out dictionary, out string error))
             {
@@ -324,9 +381,9 @@ namespace ChatUtilities.UI
             statusText = "Saved user content.";
         }
 
-        private bool TryBuildDictionary(out Dictionary<string, string> dictionary, out string error)
+        private bool TryBuildDictionary(out Dictionary<string, SavedUserContentEntry> dictionary, out string error)
         {
-            dictionary = new Dictionary<string, string>();
+            dictionary = new Dictionary<string, SavedUserContentEntry>();
             error = string.Empty;
 
             HashSet<string> usedTitles = new HashSet<string>(StringComparer.Ordinal);
@@ -362,7 +419,7 @@ namespace ChatUtilities.UI
                 }
 
                 usedTitles.Add(title);
-                dictionary.Add(title, content);
+                dictionary.Add(title, new SavedUserContentEntry(content, entry.AutoSend));
             }
 
             return true;
@@ -380,6 +437,7 @@ namespace ChatUtilities.UI
         public float TotalWidth;
         public float TitleWidth;
         public float ContentWidth;
+        public float AutoSendButtonWidth;
         public float UpButtonWidth;
         public float DownButtonWidth;
         public float DeleteButtonWidth;
@@ -396,15 +454,17 @@ namespace ChatUtilities.UI
             float headerHeight = Mathf.Max(24f, gui.GetRowHeight());
             float rowPadding = Mathf.Max(3f, spacing * 0.5f);
 
+            float autoSendButtonWidth = 58f;
             float upButtonWidth = 58f;
             float downButtonWidth = 68f;
             float deleteButtonWidth = 42f;
 
             float reservedWidth =
+                autoSendButtonWidth +
                 upButtonWidth +
                 downButtonWidth +
                 deleteButtonWidth +
-                spacing * 4f;
+                spacing * 5f;
 
             float availableTextWidth = Mathf.Max(260f, totalWidth - reservedWidth);
 
@@ -422,6 +482,7 @@ namespace ChatUtilities.UI
                 TotalWidth = totalWidth,
                 TitleWidth = titleWidth,
                 ContentWidth = contentWidth,
+                AutoSendButtonWidth = autoSendButtonWidth,
                 UpButtonWidth = upButtonWidth,
                 DownButtonWidth = downButtonWidth,
                 DeleteButtonWidth = deleteButtonWidth,
@@ -436,11 +497,30 @@ namespace ChatUtilities.UI
     {
         public string Title;
         public string Content;
+        public bool AutoSend;
 
         public EditableUserContentEntry(string title, string content)
+            : this(title, content, false)
+        {
+        }
+
+        public EditableUserContentEntry(string title, string content, bool autoSend)
         {
             Title = title ?? string.Empty;
             Content = content ?? string.Empty;
+            AutoSend = autoSend;
+        }
+    }
+
+    public class SavedUserContentEntry
+    {
+        public string Content;
+        public bool AutoSend;
+
+        public SavedUserContentEntry(string content, bool autoSend)
+        {
+            Content = content ?? string.Empty;
+            AutoSend = autoSend;
         }
     }
 }

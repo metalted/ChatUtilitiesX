@@ -100,7 +100,15 @@ namespace ChatUtilities.Suggestions
                 return input ?? string.Empty;
             }
 
-            return SuggestionTextUtility.RemovePlaceholders(selected.InsertText);
+            string insertText = SuggestionTextUtility.RemovePlaceholders(selected.InsertText);
+            string safeInput = input ?? string.Empty;
+
+            if (safeInput.StartsWith("*"))
+            {
+                return insertText;
+            }
+
+            return safeInput + insertText;
         }
 
         private void AddNumberedEntry(List<ChatSuggestionEntry> result, int number)
@@ -133,7 +141,8 @@ namespace ChatUtilities.Suggestions
                 item.Content,
                 item.Title,
                 primaryText,
-                secondaryText);
+                secondaryText,
+                item.AutoSend);
         }
     }
 }

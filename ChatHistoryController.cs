@@ -1,3 +1,4 @@
+using BepInEx.Configuration;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,6 +7,9 @@ namespace ChatUtilities
     public class ChatHistoryController
     {
         private ChatInputController chatInput;
+        private ConfigEntry<KeyCode> previousHistoryKey;
+        private ConfigEntry<KeyCode> nextHistoryKey;
+
         private List<string> messages = new List<string>();
         private int selectedIndex;
         private bool justSelectedHistory;
@@ -17,6 +21,15 @@ namespace ChatUtilities
             {
                 return messages.Count;
             }
+        }
+
+        public ChatHistoryController(
+            ConfigEntry<KeyCode> previousHistoryKeyEntry,
+            ConfigEntry<KeyCode> nextHistoryKeyEntry)
+        {
+            previousHistoryKey = previousHistoryKeyEntry;
+            nextHistoryKey = nextHistoryKeyEntry;
+            selectedIndex = messages.Count;
         }
 
         public void BindInput(ChatInputController newChatInput)
@@ -62,13 +75,13 @@ namespace ChatUtilities
 
             UpdateManualEditState();
 
-            if (Input.GetKeyDown(KeyCode.UpArrow))
+            if (IsPreviousHistoryPressed())
             {
                 MovePrevious();
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.DownArrow))
+            if (IsNextHistoryPressed())
             {
                 MoveNext();
                 return;
@@ -88,6 +101,36 @@ namespace ChatUtilities
                 justSelectedHistoryText = string.Empty;
                 selectedIndex = messages.Count;
             }
+        }
+
+        private bool IsPreviousHistoryPressed()
+        {
+            if (previousHistoryKey == null)
+            {
+                return false;
+            }
+
+            if (previousHistoryKey.Value == KeyCode.None)
+            {
+                return false;
+            }
+
+            return Input.GetKeyDown(previousHistoryKey.Value);
+        }
+
+        private bool IsNextHistoryPressed()
+        {
+            if (nextHistoryKey == null)
+            {
+                return false;
+            }
+
+            if (nextHistoryKey.Value == KeyCode.None)
+            {
+                return false;
+            }
+
+            return Input.GetKeyDown(nextHistoryKey.Value);
         }
 
         private void MovePrevious()
@@ -115,6 +158,10 @@ namespace ChatUtilities
 
             if (selectedIndex >= messages.Count - 1)
             {
+                selectedIndex = messages.Count;
+                justSelectedHistory = false;
+                justSelectedHistoryText = string.Empty;
+                chatInput.SetText(string.Empty);
                 return;
             }
 

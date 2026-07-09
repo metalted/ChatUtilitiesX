@@ -19,7 +19,7 @@ namespace ChatUtilities
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
         public const string PluginName = "Chat Utilities";
-        public const string PluginVersion = "2.2";
+        public const string PluginVersion = "2.3";
 
         public static Plugin Instance;
 
@@ -27,6 +27,11 @@ namespace ChatUtilities
         public ConfigEntry<KeyCode> ApplySelectionKey;
         public ConfigEntry<KeyCode> ClearChatFieldKey;
         public ConfigEntry<KeyCode> PasteClipboardKey;
+        public ConfigEntry<KeyCode> ApplyAndSendSelectionKey;
+        public ConfigEntry<KeyCode> QuickUserContentKey;
+        public ConfigEntry<KeyCode> PreviousHistoryKey;
+        public ConfigEntry<KeyCode> NextHistoryKey;
+
         public ConfigEntry<int> MaxSuggestions;
         public ConfigEntry<float> RowTextScale;
         public ConfigEntry<float> SuggestionScrollRowsPerWheel;
@@ -40,6 +45,10 @@ namespace ChatUtilities
         private List<UserContentDefinition> userContent;
         private ChatShortcodeExpander shortcodeExpander;
 
+        private OnlineChatUI onlineChatUi;
+        private string preservedChatText = string.Empty;
+        private bool preservedChatWasOpen;
+
         private void Awake()
         {
             Instance = this;
@@ -48,9 +57,13 @@ namespace ChatUtilities
 
             emotes = DefaultChatData.CreateEmotes();
             userContent = new List<UserContentDefinition>();
-            history = new ChatHistoryController();
 
             BindConfig();
+
+            history = new ChatHistoryController(
+                PreviousHistoryKey,
+                NextHistoryKey);
+
             SettingsApi.RegisterModSettingsDrawers(this, BuildSettingsDrawers);
 
             RebuildUserContent();
@@ -160,12 +173,15 @@ namespace ChatUtilities
 
         public void SetOnlineChatUI(OnlineChatUI onlineChatUi)
         {
+            CaptureChatSceneState();
             ClearSceneState();
 
             if ((UnityEngine.Object)onlineChatUi == null)
             {
                 return;
             }
+
+            this.onlineChatUi = onlineChatUi;
 
             chatInput = new ChatInputController();
             chatInput.Bind(onlineChatUi);
@@ -176,18 +192,51 @@ namespace ChatUtilities
                 return;
             }
 
-            chatInput.Clear();
+            RestoreChatSceneState();
 
             if (history != null)
             {
                 history.BindInput(chatInput);
             }
 
-            suggestions = new ChatSuggestionController(chatInput, ApplySelectionKey, MaxSuggestions);
+            suggestions = new ChatSuggestionController(chatInput, ApplySelectionKey, ApplyAndSendSelectionKey, QuickUserContentKey, MaxSuggestions, SendSuggestionMessage);
             suggestions.SetProviders(CreateSuggestionProviders());
-            suggestions.InitializeView(chatInput.ChatRoot, chatInput.ChatTextTemplate);
-            suggestions.SetScrollRowsPerWheel(SuggestionScrollRowsPerWheel.Value);
+            suggestions.InitializeView(chatInput.ChatRoot, chatInput.ChatTextTemplate);   
             suggestions.ResetInputState();
+            suggestions.SetScrollRowsPerWheel(SuggestionScrollRowsPerWheel.Value);
+        }
+
+        private void CaptureChatSceneState()
+        {
+            preservedChatText = string.Empty;
+            preservedChatWasOpen = false;
+
+            if (chatInput == null || !chatInput.IsAvailable)
+            {
+                return;
+            }
+
+            preservedChatText = chatInput.GetText() ?? string.Empty;
+            preservedChatWasOpen = OnlineChatUI.wasTyping;
+        }
+
+        private void RestoreChatSceneState()
+        {
+            if (chatInput == null || !chatInput.IsAvailable)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(preservedChatText))
+            {
+                chatInput.SetText(preservedChatText);
+            }
+
+            if (preservedChatWasOpen && (UnityEngine.Object)onlineChatUi != null)
+            {
+                OnlineChatUI.wasTyping = true;
+                onlineChatUi.EnableSmallBox(false);
+            }
         }
 
         public void ChatWasClosed()
@@ -210,14 +259,12 @@ namespace ChatUtilities
         {
             AddToHistory(message);
 
+            preservedChatText = string.Empty;
+            preservedChatWasOpen = false;
+
             if (suggestions != null)
             {
                 suggestions.ResetInputState();
-            }
-
-            if (chatInput != null && chatInput.IsAvailable)
-            {
-                chatInput.Clear();
             }
         }
 
@@ -247,7 +294,7 @@ namespace ChatUtilities
             ApplySelectionKey = Config.Bind(
                 "1. Controls",
                 "01. Apply Selection",
-                KeyCode.RightArrow,
+                KeyCode.None,
                 "Accept the selected chat suggestion.");
 
             ClearChatFieldKey = Config.Bind(
@@ -261,6 +308,30 @@ namespace ChatUtilities
                 "03. Paste Clipboard",
                 KeyCode.None,
                 "Paste the clipboard contents into the chat field.");
+
+            ApplyAndSendSelectionKey = Config.Bind(
+                "1. Controls",
+                "04. Apply And Send Selection",
+                KeyCode.None,
+                "Accept the selected chat suggestion and immediately send the resulting chat message.");
+
+            QuickUserContentKey = Config.Bind(
+                "1. Controls",
+                "05. Quick User Content",
+                KeyCode.None,
+                "Hold this key to show user content suggestions without typing *. While held, press 1-9 to apply a user content entry.");
+
+            PreviousHistoryKey = Config.Bind(
+               "1. Controls",
+               "06. Previous History",
+               KeyCode.None,
+               "Go to the previous sent chat message.");
+
+            NextHistoryKey = Config.Bind(
+                "Settings",
+                "07. Next History",
+                KeyCode.None,
+                "Go to the next sent chat message.");
 
             MaxSuggestions = Config.Bind(
                 "2. User Interface",
@@ -279,7 +350,7 @@ namespace ChatUtilities
                 "03. Scroll Rows Per Wheel Step",
                 1f,
                 "How many suggestion rows the mouse wheel should scroll per wheel step."
-            );
+            );           
         }
 
         private IEnumerable<IZeepSettingsDrawer> BuildSettingsDrawers(ModSettingsDrawerBuildContext context)
@@ -350,9 +421,37 @@ namespace ChatUtilities
                 chatInput = null;
             }
 
+            onlineChatUi = null;
+
             if (history != null)
             {
                 history.BindInput(null);
+            }
+        }
+
+        private void SendSuggestionMessage(string message)
+        {
+            if ((UnityEngine.Object)onlineChatUi == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            onlineChatUi.SendChatMessage(message);
+
+            preservedChatText = string.Empty;
+            preservedChatWasOpen = false;
+
+            OnlineChatUI.wasTyping = false;
+            onlineChatUi.EnableSmallBox(true);
+
+            if (suggestions != null)
+            {
+                suggestions.ResetInputState();
             }
         }
 
@@ -395,24 +494,59 @@ namespace ChatUtilities
 
             try
             {
-                Dictionary<string, string> dictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+                Newtonsoft.Json.Linq.JObject root = Newtonsoft.Json.Linq.JObject.Parse(json);
 
-                if (dictionary == null)
+                foreach (Newtonsoft.Json.Linq.JProperty property in root.Properties())
                 {
-                    return result;
-                }
+                    string title = property.Name;
+                    string content = string.Empty;
+                    bool autoSend = false;
 
-                foreach (KeyValuePair<string, string> pair in dictionary)
-                {
-                    if (string.IsNullOrWhiteSpace(pair.Value))
+                    if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.String)
+                    {
+                        content = property.Value.ToString();
+                        autoSend = false;
+                    }
+                    else if (property.Value.Type == Newtonsoft.Json.Linq.JTokenType.Object)
+                    {
+                        Newtonsoft.Json.Linq.JObject entryObject = (Newtonsoft.Json.Linq.JObject)property.Value;
+
+                        Newtonsoft.Json.Linq.JToken contentToken;
+
+                        if (entryObject.TryGetValue("Content", System.StringComparison.OrdinalIgnoreCase, out contentToken))
+                        {
+                            content = contentToken.ToString();
+                        }
+
+                        Newtonsoft.Json.Linq.JToken autoSendToken;
+
+                        if (entryObject.TryGetValue("AutoSend", System.StringComparison.OrdinalIgnoreCase, out autoSendToken))
+                        {
+                            if (autoSendToken.Type == Newtonsoft.Json.Linq.JTokenType.Boolean)
+                            {
+                                autoSend = autoSendToken.ToObject<bool>();
+                            }
+                            else
+                            {
+                                bool.TryParse(autoSendToken.ToString(), out autoSend);
+                            }
+                        }
+                    }
+
+                    if (string.IsNullOrWhiteSpace(title))
                     {
                         continue;
                     }
 
-                    result.Add(new UserContentDefinition(pair.Key, pair.Value));
+                    if (string.IsNullOrWhiteSpace(content))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new UserContentDefinition(title, content, autoSend));
                 }
             }
-            catch (Exception exception)
+            catch (System.Exception exception)
             {
                 Logger.LogWarning("Chat Utilities could not parse user content JSON: " + exception.Message);
             }

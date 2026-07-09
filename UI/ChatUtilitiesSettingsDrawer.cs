@@ -18,8 +18,12 @@ namespace ChatUtilities.UI
             gui.AddSpacing();
             gui.Text("Controls");
             DrawDefaultEntry(gui, context, Plugin.Instance.ApplySelectionKey, "Apply Selection");
+            DrawDefaultEntry(gui, context, Plugin.Instance.ApplyAndSendSelectionKey, "Apply & Send Selection");
             DrawDefaultEntry(gui, context, Plugin.Instance.ClearChatFieldKey, "Clear Chat Field");
             DrawDefaultEntry(gui, context, Plugin.Instance.PasteClipboardKey, "Paste Clipboard");
+            DrawDefaultEntry(gui, context, Plugin.Instance.PreviousHistoryKey, "Previous History");
+            DrawDefaultEntry(gui, context, Plugin.Instance.NextHistoryKey, "Next History");
+            DrawDefaultEntry(gui, context, Plugin.Instance.QuickUserContentKey, "Quick User Content");
             gui.AddSpacing();
 
             gui.Separator();
