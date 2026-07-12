@@ -1,3 +1,4 @@
+using BepInEx.Configuration;
 using ChatUtilities.Data;
 using ChatUtilities.Suggestions;
 using System.Collections.Generic;
@@ -10,11 +11,13 @@ namespace ChatUtilities
         private List<ChatCommandDefinition> commands;
         private List<EmoteDefinition> emotes;
         private List<UserContentDefinition> userContent;
+        private ConfigEntry<string> triggerCharacterConfig;
 
         public ChatShortcodeExpander(
             IEnumerable<ChatCommandDefinition> commandDefinitions,
             IEnumerable<EmoteDefinition> emoteDefinitions,
-            IEnumerable<UserContentDefinition> userContentDefinitions)
+            IEnumerable<UserContentDefinition> userContentDefinitions,
+            ConfigEntry<string> emoteTriggerCharacter)
         {
             commands = new List<ChatCommandDefinition>();
             emotes = new List<EmoteDefinition>();
@@ -34,6 +37,18 @@ namespace ChatUtilities
             {
                 userContent.AddRange(userContentDefinitions);
             }
+
+            triggerCharacterConfig = emoteTriggerCharacter;
+        }
+
+        private char GetTriggerCharacter()
+        {
+            if (triggerCharacterConfig == null || string.IsNullOrEmpty(triggerCharacterConfig.Value))
+            {
+                return ':';
+            }
+
+            return triggerCharacterConfig.Value[0];
         }
 
         public string Expand(string message)
@@ -117,7 +132,17 @@ namespace ChatUtilities
 
         private string ExpandEmoteShortcodes(string message)
         {
-            return Regex.Replace(message, @":(\d+)(?=\s|$)", ReplaceEmoteShortcode);
+            char triggerChar = GetTriggerCharacter();
+
+            // Escape the trigger character for use in regex (important for special chars like | or .)
+            string escapedTrigger = Regex.Escape(triggerChar.ToString());
+
+            // Build pattern: negative lookbehind to avoid matching digits before trigger
+            // e.g., if trigger is ';' the pattern becomes: (?<!\d);(\d+)(?=\s|$)
+            // This ensures "1;30" won't match, but ";3" will
+            string pattern = string.Format(@"(?<!\d){0}(\d+)(?=\s|$)", escapedTrigger);
+
+            return Regex.Replace(message, pattern, ReplaceEmoteShortcode);
         }
 
         private string ReplaceEmoteShortcode(Match match)

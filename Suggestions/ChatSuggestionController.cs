@@ -397,12 +397,26 @@ namespace ChatUtilities.Suggestions
 
             if (IsApplyAndSendSelectionPressed())
             {
+                // Mark Enter as consumed if it's the bound key
+                if (applyAndSendSelectionKey != null &&
+                    (applyAndSendSelectionKey.Value == KeyCode.Return || applyAndSendSelectionKey.Value == KeyCode.KeypadEnter))
+                {
+                    Plugin.ConsumeEnterKey();
+                }
+
                 ApplySelection(true, false);
                 return true;
             }
 
             if (IsApplySelectionPressed())
             {
+                // Mark Enter as consumed if it's the bound key
+                if (applySelectionKey != null &&
+                    (applySelectionKey.Value == KeyCode.Return || applySelectionKey.Value == KeyCode.KeypadEnter))
+                {
+                    Plugin.ConsumeEnterKey();
+                }
+
                 ApplySelection(false, false);
                 return true;
             }

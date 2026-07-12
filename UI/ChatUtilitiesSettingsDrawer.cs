@@ -16,6 +16,18 @@ namespace ChatUtilities.UI
         {
             gui.Separator();
             gui.AddSpacing();
+            gui.Text("How to use");
+            gui.BeginIndent();
+            gui.Text("Start a message with / to see available commands.", wrap:true);
+            gui.Text("Use the emote trigger character anywhere in the message to see available emotes.", wrap: true);
+            gui.Text("Start a message with * to see available user content.", wrap: true);
+            gui.Text("Search for a suggestion by typing part of the name, or using the number of the suggestion.", wrap: true);
+            gui.Text("Examples: '/skip', '/2', ':smile', ':10', '*gg', '*3'", wrap: true);
+            gui.EndIndent();
+            gui.AddSpacing();
+
+            gui.Separator();
+            gui.AddSpacing();
             gui.Text("Controls");
             DrawDefaultEntry(gui, context, Plugin.Instance.ApplySelectionKey, "Apply Selection");
             DrawDefaultEntry(gui, context, Plugin.Instance.ApplyAndSendSelectionKey, "Apply & Send Selection");
@@ -32,6 +44,7 @@ namespace ChatUtilities.UI
             DrawDefaultEntry(gui, context, Plugin.Instance.MaxSuggestions, "Max Suggestions");
             DrawDefaultEntry(gui, context, Plugin.Instance.RowTextScale, "Row Text Scale");
             DrawDefaultEntry(gui, context, Plugin.Instance.SuggestionScrollRowsPerWheel, "Rows Per Scroll");
+            DrawDefaultEntry(gui, context, Plugin.Instance.EmoteTriggerCharacter, "Emote Trigger Character");
             gui.AddSpacing();
 
             gui.Separator();

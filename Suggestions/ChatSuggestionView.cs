@@ -255,6 +255,10 @@ namespace ChatUtilities.Suggestions
             panelTransform = panel.GetComponent<RectTransform>();
             panelImage = panel.AddComponent<Image>();
 
+            // Ensure the panel image blocks raycasts
+            panelImage.raycastTarget = true;
+            panelImage.alphaHitTestMinimumThreshold = 0.01f; // Block clicks even if nearly transparent
+
             GameObject scrollViewObject = new GameObject(
                 "Scroll View",
                 new Type[] { typeof(RectTransform), typeof(Image), typeof(Mask), typeof(ScrollRect) });
@@ -267,6 +271,11 @@ namespace ChatUtilities.Suggestions
             scrollViewTransform.offsetMax = Vector2.zero;
 
             viewportImage = scrollViewObject.GetComponent<Image>();
+
+            // Ensure the viewport image also blocks raycasts
+            viewportImage.raycastTarget = true;
+            viewportImage.alphaHitTestMinimumThreshold = 0.01f; // Block clicks even if nearly transparent
+
             Mask mask = scrollViewObject.GetComponent<Mask>();
             mask.showMaskGraphic = false;
 

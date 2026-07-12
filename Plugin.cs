@@ -19,7 +19,7 @@ namespace ChatUtilities
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
         public const string PluginName = "Chat Utilities";
-        public const string PluginVersion = "2.3";
+        public const string PluginVersion = "2.4";
 
         public static Plugin Instance;
 
@@ -31,6 +31,7 @@ namespace ChatUtilities
         public ConfigEntry<KeyCode> QuickUserContentKey;
         public ConfigEntry<KeyCode> PreviousHistoryKey;
         public ConfigEntry<KeyCode> NextHistoryKey;
+        public ConfigEntry<string> EmoteTriggerCharacter;
 
         public ConfigEntry<int> MaxSuggestions;
         public ConfigEntry<float> RowTextScale;
@@ -48,6 +49,32 @@ namespace ChatUtilities
         private OnlineChatUI onlineChatUi;
         private string preservedChatText = string.Empty;
         private bool preservedChatWasOpen;
+
+        // Track when ChatUtilities consumes Enter key
+        private static bool justConsumedEnterKey = false;
+        private static float enterKeyConsumedTime = 0f;
+        private const float ENTER_KEY_SUPPRESS_DURATION = 0.15f;
+
+        public static bool ShouldSuppressEnterKey()
+        {
+            return justConsumedEnterKey && Time.unscaledTime - enterKeyConsumedTime < ENTER_KEY_SUPPRESS_DURATION;
+        }
+
+        public static void ConsumeEnterKey()
+        {
+            justConsumedEnterKey = true;
+            enterKeyConsumedTime = Time.unscaledTime;
+        }
+
+        public static void ClearEnterKeyConsumption()
+        {
+            justConsumedEnterKey = false;
+        }
+
+        public ChatSuggestionController GetSuggestionController()
+        {
+            return suggestions;
+        }
 
         private void Awake()
         {
@@ -319,7 +346,7 @@ namespace ChatUtilities
                 "1. Controls",
                 "05. Quick User Content",
                 KeyCode.None,
-                "Hold this key to show user content suggestions without typing *. While held, press 1-9 to apply a user content entry.");
+                "Hold this key to show user content suggestions without typing *.\nWhile held, press 1-9 to apply a user content entry.");
 
             PreviousHistoryKey = Config.Bind(
                "1. Controls",
@@ -344,6 +371,13 @@ namespace ChatUtilities
                 "02. Row Text Scale",
                 18f,
                 "Text scale inside the row.");
+
+            EmoteTriggerCharacter = Config.Bind(
+                "2. User Interface",
+                "04. Emote Trigger Character",
+                ":",
+                "Character used to trigger emote suggestions.\nDefault is ':' but you can use ';' or '|' etc.\nThe actual emote codes remain unchanged."
+            );
 
             SuggestionScrollRowsPerWheel = Config.Bind(
                 "2. User Interface",
@@ -461,7 +495,7 @@ namespace ChatUtilities
             {
                 new CommandSuggestionProvider(commands),
                 new UserContentSuggestionProvider(userContent),
-                new EmoteSuggestionProvider(emotes)
+                new EmoteSuggestionProvider(emotes, EmoteTriggerCharacter)
             };
         }
 
@@ -480,7 +514,7 @@ namespace ChatUtilities
 
         private void RebuildShortcodeExpander()
         {
-            shortcodeExpander = new ChatShortcodeExpander(commands, emotes, userContent);
+            shortcodeExpander = new ChatShortcodeExpander(commands, emotes, userContent, EmoteTriggerCharacter);
         }
 
         private List<UserContentDefinition> ParseUserContent(string json)

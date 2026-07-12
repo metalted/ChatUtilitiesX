@@ -1,3 +1,4 @@
+using BepInEx.Configuration;
 using ChatUtilities.Data;
 using System;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ namespace ChatUtilities.Suggestions
     public class EmoteSuggestionProvider : IChatSuggestionProvider
     {
         private List<EmoteDefinition> emotes;
+        private ConfigEntry<string> triggerCharacterConfig;
 
         public string Name
         {
@@ -19,7 +21,7 @@ namespace ChatUtilities.Suggestions
 
         public ChatSuggestionStyle Style { get; private set; }
 
-        public EmoteSuggestionProvider(IEnumerable<EmoteDefinition> emoteDefinitions)
+        public EmoteSuggestionProvider(IEnumerable<EmoteDefinition> emoteDefinitions, ConfigEntry<string> triggerCharacter)
         {
             emotes = new List<EmoteDefinition>();
 
@@ -27,6 +29,8 @@ namespace ChatUtilities.Suggestions
             {
                 emotes.AddRange(emoteDefinitions);
             }
+
+            triggerCharacterConfig = triggerCharacter;
 
             Style = new ChatSuggestionStyle(
                 new Color(0.1f, 0.1f, 0.1f, 0.95f),
@@ -36,6 +40,16 @@ namespace ChatUtilities.Suggestions
                 new Vector2(0f, 0.05f),
                 new Vector2(1f, 0.4f),
                 1f);
+        }
+
+        private char GetTriggerCharacter()
+        {
+            if (triggerCharacterConfig == null || string.IsNullOrEmpty(triggerCharacterConfig.Value))
+            {
+                return ':';
+            }
+
+            return triggerCharacterConfig.Value[0];
         }
 
         public bool TryGetQuery(string input, out string query)
@@ -52,14 +66,42 @@ namespace ChatUtilities.Suggestions
                 return false;
             }
 
-            int colonIndex = input.LastIndexOf(':');
+            char triggerChar = GetTriggerCharacter();
+            int triggerIndex = input.LastIndexOf(triggerChar);
 
-            if (colonIndex < 0)
+            if (triggerIndex < 0)
             {
                 return false;
             }
 
-            query = input.Substring(colonIndex + 1);
+            // Fix #1: Check if trigger char is at start or preceded by whitespace
+            // This prevents "1:03" from triggering emoji selector
+            if (triggerIndex > 0)
+            {
+                char charBeforeTrigger = input[triggerIndex - 1];
+                if (!char.IsWhiteSpace(charBeforeTrigger))
+                {
+                    // Fix #2: Check if we just completed a valid emoji
+                    // Find the second-to-last trigger character
+                    int previousTriggerIndex = input.LastIndexOf(triggerChar, triggerIndex - 1);
+                    if (previousTriggerIndex >= 0)
+                    {
+                        // Extract potential emoji code between the two triggers
+                        string potentialEmoji = input.Substring(previousTriggerIndex, triggerIndex - previousTriggerIndex + 1);
+
+                        // Check if this is a complete emoji (using the custom trigger)
+                        if (IsValidEmoteCodeWithTrigger(potentialEmoji, triggerChar))
+                        {
+                            return false;
+                        }
+                    }
+
+                    // No valid emoji found and not after whitespace, so reject
+                    return false;
+                }
+            }
+
+            query = input.Substring(triggerIndex + 1);
 
             if (SuggestionTextUtility.ContainsWhiteSpace(query))
             {
@@ -116,14 +158,15 @@ namespace ChatUtilities.Suggestions
             }
 
             string safeInput = input ?? string.Empty;
-            int colonIndex = safeInput.LastIndexOf(':');
+            char triggerChar = GetTriggerCharacter();
+            int triggerIndex = safeInput.LastIndexOf(triggerChar);
 
-            if (colonIndex < 0)
+            if (triggerIndex < 0)
             {
                 return safeInput + selected.InsertText + " ";
             }
 
-            return safeInput.Substring(0, colonIndex) + selected.InsertText + " ";
+            return safeInput.Substring(0, triggerIndex) + selected.InsertText + " ";
         }
 
         private void AddNumberedEntry(List<ChatSuggestionEntry> result, int number)
@@ -157,6 +200,38 @@ namespace ChatUtilities.Suggestions
                 emote.Code,
                 primaryText,
                 secondaryText);
+        }
+
+        private bool IsValidEmoteCode(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < emotes.Count; i++)
+            {
+                if (emotes[i] != null && string.Equals(emotes[i].Code, code, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsValidEmoteCodeWithTrigger(string textWithTrigger, char triggerChar)
+        {
+            if (string.IsNullOrEmpty(textWithTrigger) || textWithTrigger.Length < 3)
+            {
+                return false;
+            }
+
+            // Convert custom trigger to standard colon format for validation
+            // e.g., ";smile;" -> ":smile:"
+            string normalizedCode = textWithTrigger.Replace(triggerChar, ':');
+
+            return IsValidEmoteCode(normalizedCode);
         }
     }
 }
