@@ -4,7 +4,7 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>ChatUtilities</AssemblyName>
     <Description>ChatUtilities</Description>
-    <Version>2.4</Version>
+    <Version>2.5</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
@@ -14,8 +14,8 @@
     <PackageReference Include="BepInEx.Core" Version="5.*" />
     <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
     <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile" />
-    <PackageReference Include="Zeepkist.GameLibs" Version="17.32.1912" />
-    <PackageReference Include="ZeepSDK" Version="2.4.0-beta.1" />
+    <PackageReference Include="Zeepkist.GameLibs" Version="18.10.2087" />
+    <PackageReference Include="ZeepSDK" Version="2.7.5" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">

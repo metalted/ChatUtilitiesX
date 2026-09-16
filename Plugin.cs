@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using ChatUtilities.Data;
+using ChatUtilities.Network;
 using ChatUtilities.Suggestions;
 using ChatUtilities.UI;
 using HarmonyLib;
@@ -19,7 +20,7 @@ namespace ChatUtilities
     {
         public const string PluginGuid = "com.metalted.zeepkist.chatutilities";
         public const string PluginName = "Chat Utilities";
-        public const string PluginVersion = "2.4";
+        public const string PluginVersion = "2.5";
 
         public static Plugin Instance;
 
@@ -37,8 +38,10 @@ namespace ChatUtilities
         public ConfigEntry<float> RowTextScale;
         public ConfigEntry<float> SuggestionScrollRowsPerWheel;
 
+        //public ConfigEntry<int> HttpCommandPort;
+
         private Harmony harmony;
-        private ChatInputController chatInput;
+        public ChatInputController chatInput { get; private set; }
         private ChatHistoryController history;
         private ChatSuggestionController suggestions;
         private List<ChatCommandDefinition> commands;
@@ -54,6 +57,8 @@ namespace ChatUtilities
         private static bool justConsumedEnterKey = false;
         private static float enterKeyConsumedTime = 0f;
         private const float ENTER_KEY_SUPPRESS_DURATION = 0.15f;
+
+        ///private HTTPHandler httpHandler;
 
         public static bool ShouldSuppressEnterKey()
         {
@@ -76,7 +81,7 @@ namespace ChatUtilities
             return suggestions;
         }
 
-        private void Awake()
+        public void Awake()
         {
             Instance = this;
 
@@ -96,6 +101,8 @@ namespace ChatUtilities
             RebuildUserContent();
 
             Config.SettingChanged += OnConfigSettingChanged;
+
+            //httpHandler = new HTTPHandler(HttpCommandPort.Value);
 
             harmony = new Harmony(PluginGuid);
             harmony.PatchAll();
@@ -162,7 +169,7 @@ namespace ChatUtilities
             }
         }
 
-        private void OnDestroy()
+        public void OnDestroy()
         {
             Config.SettingChanged -= OnConfigSettingChanged;
             ClearSceneState();
@@ -174,10 +181,14 @@ namespace ChatUtilities
             }
 
             Instance = null;
+
+            //httpHandler.OnDestroy();
         }
 
-        private void Update()
+        public void Update()
         {
+            //httpHandler.Update();
+
             if (chatInput == null || !chatInput.IsAvailable || !chatInput.IsOpen)
             {
                 return;
@@ -196,7 +207,7 @@ namespace ChatUtilities
             {
                 history.Update();
             }
-        }
+        }        
 
         public void SetOnlineChatUI(OnlineChatUI onlineChatUi)
         {
@@ -384,7 +395,14 @@ namespace ChatUtilities
                 "03. Scroll Rows Per Wheel Step",
                 1f,
                 "How many suggestion rows the mouse wheel should scroll per wheel step."
-            );           
+            );
+
+            /*HttpCommandPort = Config.Bind(
+                "3. Network",
+                "01. HTTP Command Port",
+                45872,
+                ""
+            );*/
         }
 
         private IEnumerable<IZeepSettingsDrawer> BuildSettingsDrawers(ModSettingsDrawerBuildContext context)

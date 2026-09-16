@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using ZeepSDK.Chat;
 
 namespace ChatUtilities
 {
@@ -27,6 +28,69 @@ namespace ChatUtilities
             {
                 return IsAvailable && ChatRoot.activeInHierarchy;
             }
+        }
+
+        public void OpenChat()
+        {
+            if(!IsAvailable)
+            {
+                return;
+            }
+
+            if(IsOpen)
+            {
+                return;
+            }
+
+            OnlineChatUi.currentlyTyping = true;
+
+            OnlineChatUI.wasTyping = true;
+            OnlineChatUI.currentMessage = string.Empty;
+
+            OnlineChatUi.bigChatBox.text = string.Empty;
+            OnlineChatUi.caretTicker = 0f;
+            OnlineChatUi.caretYes = true;
+
+            OnlineChatUi.EnableBigBox();
+        }
+
+        public void SetText(string value)
+        {
+            if (!IsAvailable)
+            {
+                return;
+            }
+
+            if(!IsOpen)
+            {
+                OpenChat();
+            }
+
+            string safeValue = value ?? string.Empty;
+            OnlineChatUI.currentMessage = safeValue;
+            ChatText.text = safeValue;
+        }
+
+        public void Send()
+        {
+            if (!IsAvailable)
+            {
+                return;
+            }
+
+            string message = OnlineChatUI.currentMessage;
+
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            OnlineChatUi.SendChatMessage(message);
+
+            OnlineChatUI.currentMessage = string.Empty;
+            OnlineChatUI.wasTyping = false;
+
+            OnlineChatUi.EnableSmallBox(true);
         }
 
         public void Bind(OnlineChatUI onlineChatUi)
@@ -89,18 +153,6 @@ namespace ChatUtilities
             }
 
             return ChatText.text ?? string.Empty;
-        }
-
-        public void SetText(string value)
-        {
-            if (!IsAvailable)
-            {
-                return;
-            }
-
-            string safeValue = value ?? string.Empty;
-            OnlineChatUI.currentMessage = safeValue;
-            ChatText.text = safeValue;
         }
 
         public void Clear()
